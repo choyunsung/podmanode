@@ -1,16 +1,83 @@
-# dockerode
+# podmanode
 
-Not another Node.js Docker Remote API module.
+Podman and Docker compatible Remote API module for Node.js
 
-`dockerode` objectives:
+Forked from [dockerode](https://github.com/apocas/dockerode) with Podman support.
 
-* **streams** - `dockerode` does NOT break any stream, it passes them to you allowing for some stream voodoo.
-* **stream demux** - Supports optional [stream demultiplexing](https://github.com/apocas/dockerode#helper-functions).
-* **entities** - containers, images and execs are defined entities and not random static methods.
-* **run** - `dockerode` allow you to seamless run commands in a container aka `docker run`.
-* **tests** - `dockerode` really aims to have a good test set, allowing to follow `Docker` changes easily, quickly and painlessly.
-* **feature-rich** - There's a real effort in keeping **All** `Docker` Remote API features implemented and tested.
+`podmanode` objectives:
+
+* **Podman & Docker compatibility** - Works seamlessly with both Podman and Docker
+* **Auto-detection** - Automatically detects Podman socket (rootless and rootful) or falls back to Docker
+* **streams** - Does NOT break any stream, passes them to you allowing for some stream voodoo
+* **stream demux** - Supports optional [stream demultiplexing](#helper-functions)
+* **entities** - containers, images and execs are defined entities and not random static methods
+* **run** - Allows you to seamlessly run commands in a container aka `docker run` / `podman run`
+* **tests** - Aims to have a good test set, allowing to follow `Docker`/`Podman` changes easily
+* **feature-rich** - Real effort in keeping **All** compatible Remote API features implemented
 * **interfaces** - Features **callback** and **promise** based interfaces, making everyone happy :)
+
+## ⚠️ Podman Limitations
+
+- **Swarm is NOT supported** - Podman does not support Docker Swarm. All swarm-related methods will fail when connected to Podman (swarmInit, swarmJoin, swarmLeave, swarmUpdate, swarmInspect, and related Service/Task/Node/Secret/Config operations).
+
+## 🚀 Podman-Specific Features
+
+Podman provides **Pods** - a group of one or more containers that share the same network, IPC, and UTS namespaces. This is Podman's alternative to Docker Swarm services.
+
+### Working with Pods
+
+```js
+var Docker = require('podmanode');
+var docker = new Docker();
+
+// Create a pod
+docker.createPod({
+  name: 'my-pod',
+  portmappings: [
+    {
+      container_port: 80,
+      host_port: 8080
+    }
+  ]
+}).then(function(pod) {
+  console.log('Pod created:', pod.id);
+
+  // Start the pod
+  return pod.start();
+}).then(function(data) {
+  console.log('Pod started');
+}).catch(function(err) {
+  console.log(err);
+});
+
+// List all pods
+docker.listPods(function(err, pods) {
+  console.log(pods);
+});
+
+// Get a specific pod
+var pod = docker.getPod('my-pod');
+
+// Inspect pod
+pod.inspect(function(err, data) {
+  console.log(data);
+});
+
+// Stop pod
+pod.stop(function(err, data) {
+  console.log('Pod stopped');
+});
+
+// Remove pod
+pod.remove(function(err, data) {
+  console.log('Pod removed');
+});
+
+// Prune unused pods
+docker.prunePods(function(err, data) {
+  console.log('Pruned pods:', data);
+});
+```
 
 ## Ecosystem
 
@@ -19,37 +86,51 @@ Not another Node.js Docker Remote API module.
 
 ## Installation
 
-`npm install dockerode`
+```bash
+npm install podmanode
+```
 
 ## Usage
 
- * Input options are directly passed to Docker. Check [Docker API documentation](https://docs.docker.com/engine/api/latest/) for more details.
- * Return values are unchanged from Docker, official Docker documentation will also apply to them.
+ * Input options are directly passed to the container engine API. Check [Docker API documentation](https://docs.docker.com/engine/api/latest/) or [Podman API documentation](https://docs.podman.io/en/latest/_static/api.html) for more details.
+ * Return values are unchanged from the container engine, official documentation will also apply to them.
  * Check the tests and examples folder for more examples.
 
 ### Getting started
 
-To use `dockerode` first you need to instantiate it:
+To use `podmanode` first you need to instantiate it:
 
 ``` js
-var Docker = require('dockerode');
-var docker = new Docker({socketPath: '/var/run/docker.sock'});
-var docker1 = new Docker(); //defaults to above if env variables are not used
-var docker2 = new Docker({host: 'http://192.168.1.10', port: 3000});
-var docker3 = new Docker({protocol:'http', host: '127.0.0.1', port: 3000});
-var docker4 = new Docker({host: '127.0.0.1', port: 3000}); //defaults to http
+var Docker = require('podmanode');
+
+// Auto-detect: tries Podman sockets first, then falls back to Docker
+var docker = new Docker();
+
+// Podman rootless (default for non-root users)
+var docker1 = new Docker({socketPath: '/run/user/1000/podman/podman.sock'});
+
+// Podman rootful
+var docker2 = new Docker({socketPath: '/run/podman/podman.sock'});
+
+// Docker (traditional)
+var docker3 = new Docker({socketPath: '/var/run/docker.sock'});
+
+// Remote connections work the same way
+var docker4 = new Docker({host: 'http://192.168.1.10', port: 3000});
+var docker5 = new Docker({protocol:'http', host: '127.0.0.1', port: 3000});
+var docker6 = new Docker({host: '127.0.0.1', port: 3000}); //defaults to http
 
 //protocol http vs https is automatically detected
-var docker5 = new Docker({
+var docker7 = new Docker({
   host: '192.168.1.10',
   port: process.env.DOCKER_PORT || 2375,
   ca: fs.readFileSync('ca.pem'),
   cert: fs.readFileSync('cert.pem'),
   key: fs.readFileSync('key.pem'),
-  version: 'v1.25' // required when Docker >= v1.13, https://docs.docker.com/engine/api/version-history/
+  version: 'v1.40' // Podman is compatible with Docker API v1.40+
 });
 
-var docker6 = new Docker({
+var docker8 = new Docker({
   protocol: 'https', //you can enforce a protocol
   host: '192.168.1.10',
   port: process.env.DOCKER_PORT || 2375,
@@ -59,7 +140,7 @@ var docker6 = new Docker({
 });
 
 //using a different promise library (default is the native one)
-var docker7 = new Docker({
+var docker9 = new Docker({
   Promise: require('bluebird')
   //...
 });
@@ -393,6 +474,10 @@ Amazing entities that [sponsor](https://github.com/sponsors/apocas) my open-sour
 - docker.listPlugins(options) - [Docker API Endpoint](https://docs.docker.com/engine/api/v1.37/#operation/PluginList)
 - docker.listVolumes(options) - [Docker API Endpoint](https://docs.docker.com/engine/api/v1.37/#operation/VolumeList)
 - docker.listNetworks(options) - [Docker API Endpoint](https://docs.docker.com/engine/api/v1.37/#operation/NetworkList)
+- docker.listPods(options) - List pods (Podman-specific)
+- docker.createPod(options) - Create a pod (Podman-specific)
+- docker.getPod(id) - Get a Pod object (Podman-specific)
+- docker.prunePods(options) - Prune unused pods (Podman-specific)
 - docker.createSecret(options) - [Docker API Endpoint](https://docs.docker.com/engine/api/v1.37/#operation/SecretCreate)
 - docker.createConfig(options) - [Docker API Endpoint](https://docs.docker.com/engine/api/v1.37/#operation/ConfigCreate)
 - docker.createPlugin(options) - [Docker API Endpoint](https://docs.docker.com/engine/api/v1.37/#operation/PluginCreate)
@@ -509,10 +594,25 @@ Amazing entities that [sponsor](https://github.com/sponsors/apocas) my open-sour
 - volume.inspect() - [Docker API Endpoint](https://docs.docker.com/engine/api/v1.37/#operation/VolumeInspect)
 - volume.remove(options) - [Docker API Endpoint](https://docs.docker.com/engine/api/v1.37/#operation/VolumeDelete)
 
+### Pod (Podman-specific)
+
+- pod.inspect(options) - Get pod configuration and state
+- pod.start(options) - Start a pod
+- pod.stop(options) - Stop a pod
+- pod.restart(options) - Restart a pod
+- pod.pause(options) - Pause a pod
+- pod.unpause(options) - Unpause a pod
+- pod.kill(options) - Kill a pod
+- pod.remove(options) - Remove a pod
+- pod.stats(options) - Get pod statistics
+- pod.top(options) - List processes running in a pod
+- pod.exists(options) - Check if a pod exists
+
 
 ## Tests
 
- * `docker pull ubuntu:latest` to prepare your system for the tests.
+ * For Docker: `docker pull ubuntu:latest` to prepare your system for the tests.
+ * For Podman: `podman pull ubuntu:latest` to prepare your system for the tests.
  * Tests are implemented using `mocha` and `chai`. Run them with `npm test`.
 
 ## Examples

@@ -1,7 +1,7 @@
 {
-  "name": "dockerode",
-  "description": "Docker Remote API module.",
-  "version": "4.0.9",
+  "name": "podmanode",
+  "description": "Podman and Docker compatible Remote API module for Node.js",
+  "version": "1.0.0",
   "author": "Pedro Dias <petermdias@gmail.com>",
   "maintainers": [
     "apocas <petermdias@gmail.com>"
@@ -11,8 +11,11 @@
     "url": "http://github.com/apocas/dockerode.git"
   },
   "keywords": [
+    "podman",
     "docker",
-    "docker.io"
+    "docker.io",
+    "container",
+    "api"
   ],
   "dependencies": {
     "@balena/dockerignore": "^1.0.2",
